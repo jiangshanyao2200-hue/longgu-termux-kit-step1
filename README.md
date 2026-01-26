@@ -57,3 +57,32 @@ PAUSE_LEVEL=2 bash stage1-prereqs.sh
 提示：
 - 图形异常时：启动用 `tx11start --nogpu` 或 `tx11start --legacy`
 - 硬件加速当前按“禁用”复刻；后续你要追求性能再单独开（避免新机型/ROM 兼容坑）。
+
+## 安装完成后（务必做）
+
+建议你在安装完成/看到 “Stage 1 完成” 后：
+
+1) 截图保存终端界面（后面会用到）。
+2) 左侧安全拉出 Termux UI。
+3) 选择 `New session` 新建标签页。
+4) 主题/字体配置（Termux:Styling）：
+
+- 运行 `termux-style`
+- Colors：选 `Custom`（对应 `~/.termux/colors.properties`）
+- Font：选 `Custom`（对应 `~/.termux/font.ttf`）
+- 运行 `termux-reload-settings`
+
+5) Powerlevel10k 配置向导（如果你使用 zsh + p10k）：
+
+- 运行 `p10k configure`
+- 推荐选择：
+  - Nerd Font v3 + Powerline
+  - Large icons
+  - Unicode
+  - Lean
+  - 12h time
+  - 1 line
+  - Compact
+  - Few icons / Concise
+  - Transient prompt：On
+  - Instant prompt：Verbose（如遇兼容问题可关）
