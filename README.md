@@ -28,19 +28,11 @@
 不在这个仓库里。
 
 
-## 常用参数（环境变量）
-
-- 精简安装桌面：`DESKTOP_LITE=1 bash stage1-prereqs.sh`
-- 自动跳过确认：`AUTO_YES=1 bash stage1-prereqs.sh`
-- 只装 Node/Codex 不装桌面：`INSTALL_DESKTOP=0 bash stage1-prereqs.sh`
-- 只打印不执行（用于预览）：`DRY_RUN=1 bash stage1-prereqs.sh`
-- 重试次数：`RETRY_MAX=6 bash stage1-prereqs.sh`
+## Termux Desktop 安装时的建议选择
 
 日志默认写到：`~/longgu-stage1.log`
 
-## Termux Desktop 安装时的建议选择
-
-为了“尽量复刻当前那台手机的安装结果”，安装器里请严格按下列选择（建议先截图）：
+安装器里请严格按下列选择（建议先截图）：
 
 1) Select Install Type：`1. Custom`
 2) Select Desktop Environment：`1. XFCE`
@@ -65,30 +57,21 @@
 - 图形异常时：启动用 `tx11start --nogpu` 或 `tx11start --legacy`
 - 硬件加速当前按“禁用”复刻；后续你要追求性能再单独开（避免新机型/ROM 兼容坑）。
 
-## 安装完成后（务必做）
+## 安装完成后
 
-建议你在安装完成/看到 “Stage 1 完成” 后：
+ “Stage 1 完成” 后：重启进入
 
-1) 截图保存终端界面（后面会用到）。
-2) 左侧安全拉出 Termux UI。
-3) 选择 `New session` 新建标签页。
-4) 主题/字体配置（Termux:Styling）：
-
-- 运行 `termux-style`
-- Colors：选 `Custom`（对应 `~/.termux/colors.properties`）
-- Font：选 `Custom`（对应 `~/.termux/font.ttf`）
-- 运行 `termux-reload-settings`
-
-5) Powerlevel10k 配置向导（如果你使用 zsh + p10k）（可忽略）：
+  Powerlevel10k 配置向导：
 
 - 运行 `p10k configure`
+
 - 推荐选择：
   - Nerd Font v3 + Powerline
   - Large icons
   - Unicode
   - Lean
   - 12h time
-  - 1 line
+  - 2 line
   - Compact
   - Few icons / Concise
   - Transient prompt：On
