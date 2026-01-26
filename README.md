@@ -32,8 +32,18 @@
 
 日志默认写到：`~/longgu-stage1.log`
 
-安装器里请严格按下列选择（建议先截图）：
+安装器里请严格按下列选择：
 
+#说明：如果您不准备使用我们定制的主题（step2）
+ 您可以进行自由选择
+ 选择中有不懂的可以咨询任意AI
+ 这些配置通常是关于desktop的：
+ ●软件集成
+ ●壁纸选择
+ ●硬件加速
+ ●主题配置
+ ●字体选择
+ 
 1) Select Install Type：`1. Custom`
 2) Select Desktop Environment：`1. XFCE`
 3) Select Style：`1 (Basic Style)`
@@ -65,7 +75,7 @@
 
 - 运行 `p10k configure`
 
-- 推荐选择：
+- 推荐选择或按需选择：
   - Nerd Font v3 + Powerline
   - Large icons
   - Unicode
