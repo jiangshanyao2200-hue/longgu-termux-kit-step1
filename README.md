@@ -2,7 +2,15 @@
 
 这是一个“只做环境就绪”的一键脚本
 
-注意：git后运行
+1️⃣ 安装termux进入
+2️⃣ 安装git
+`pkg update -y && pkg install -y git`
+3️⃣ clone 脚本
+`git clone https://github.com/jiangshanyao2200-hue/longgu-termux-kit-step1`
+4️⃣ 进入目录
+`cd ~/longgu-termux-kit-step1`
+5️⃣ 运行脚本
+`bash stage1-prereqs.sh`
 
 >Stage 1：
 
