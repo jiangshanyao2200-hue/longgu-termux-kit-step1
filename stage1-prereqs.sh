@@ -61,9 +61,9 @@ EOF
 
 banner() {
   say "${C_CYN}${C_BOLD}╔══════════════════════════════╗${C_RST}"
-  say "${C_CYN}${C_BOLD}║ 龙骨 Stage 1：Termux Desktop  ║${C_RST}"
+  say "${C_CYN}${C_BOLD}龙骨 Stage 1：Termux Desktop${C_RST}"
   say "${C_CYN}${C_BOLD}╚══════════════════════════════╝${C_RST}"
-  say "${C_DIM}日志：$LOG_FILE${C_RST}"
+  say "${C_DIM}日志：$(basename "$LOG_FILE")${C_RST}"
 }
 
 section() {
@@ -206,25 +206,35 @@ npm_global_install() {
 }
 
 check_termux_x11_app() {
-  # sabamdarif 安装器里也会检查并提示下载链接，这里提前温柔提醒一次。
-  section "前置提醒（Termux:X11 / Phantom Process Killer）"
-  say "建议先确认："
-  say "  1) Termux 来自 GitHub/F-Droid（不要 Play 版）"
-  say "  2) 已安装 Termux:API 与 Termux:X11（APK）"
-  say "  3) Android 12+ 建议关闭 Phantom Process Killer（否则桌面可能被杀）"
-  say "  4) 建议：充电 + Wi‑Fi + 屏幕常亮（后面下载会很久）"
+  section "前置提醒（务必截图保存）"
+  say "1) Termux 必须从 GitHub 安装（不要 Play 版）。"
+  say "2) 必须安装 Termux:API。"
+  say "3) 必须安装 Termux:X11。"
+  say "4) 必须安装 Termux:Styling（termux-style）。"
+  say "5) 建议以上四个都从 GitHub 顺便装齐（同源更省心）。"
+  say "6) 建议配合 MT 管理器使用（方便导入/管理文件）。"
+  say "7) 未 root 手机如何找到 Termux home 目录（用 MT 管理器）："
+  say "(1) 打开 MT 管理器"
+  say "(2) 点击左上三条杠展开选项页"
+  say "(3) 点击选项页右上角三点"
+  say "(4) +添加本地储存"
+  say "(5) 左上角三条杠展开"
+  say "(6) 选择 termux"
+  say "(7) 选择允许访问 termux"
+  say "8) 一般情况会出现 termuxhome。"
+  say "9) 如果找不到 termux home，就需要想办法了（先别继续安装）。"
+  say "10) 建议截图保存该页面。"
+  say "● 保持手机常亮"
+  say "● 保持 Termux 前台运行"
+  say "● 保持电量足够"
   say
-  if command -v pm >/dev/null 2>&1; then
-    if pm list packages 2>/dev/null | grep -q '^package:com.termux.x11$'; then
-      say "${C_GRN}[ok] 检测到已安装：com.termux.x11${C_RST}"
-    else
-      say "${C_YLW}[提示] 未检测到 com.termux.x11（你仍可继续安装，但后面需要手动装 APK）。${C_RST}"
-      say "  下载页：https://github.com/termux/termux-x11/releases"
-    fi
-  else
-    say "${C_DIM}[info] 无法通过 pm 检测 APK（可忽略）。${C_RST}"
-  fi
-  pause "确认无误后回车继续（或 Ctrl+C 退出先处理）… "
+  say "下载页："
+  say "- Termux: https://github.com/termux/termux-app/releases"
+  say "- Termux:API: https://github.com/termux/termux-api/releases"
+  say "- Termux:X11: https://github.com/termux/termux-x11/releases"
+  say "- Termux:Styling: https://github.com/termux/termux-styling/releases"
+  say
+  pause "你现在可以回车继续了（或 Ctrl+C 退出先去安装/截图）… "
 }
 
 install_node_and_tools() {
