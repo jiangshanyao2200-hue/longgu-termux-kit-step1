@@ -176,6 +176,11 @@ print_required_installer_choices() {
 pkg_update_upgrade() {
   section "更新系统（pkg update/upgrade）"
   say "这一步很慢很正常：它在为后续安装“铺路”。保持屏幕常亮、网络稳定即可。"
+  say "重要：过程中可能会弹出交互提示，需要你手动输入 y 并回车继续（别发呆）。"
+  say "常见提示示例："
+  say "- Do you want to continue? [Y/n]"
+  say "- Replace this configuration file? [Y/I/N/O/D/Z]"
+  say "如果遇到第二类配置文件提示：不确定就先按回车用默认值；想保留自己改过的就选 N。"
   pause "准备好就回车开始更新/升级（会输出很多内容）… "
   retry "$RETRY_MAX" "$RETRY_SLEEP_S" pkg update -y || retry "$RETRY_MAX" "$RETRY_SLEEP_S" pkg update
   retry "$RETRY_MAX" "$RETRY_SLEEP_S" pkg upgrade -y || retry "$RETRY_MAX" "$RETRY_SLEEP_S" pkg upgrade
