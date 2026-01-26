@@ -72,7 +72,7 @@ PAUSE_LEVEL=2 bash stage1-prereqs.sh
 - Font：选 `Custom`（对应 `~/.termux/font.ttf`）
 - 运行 `termux-reload-settings`
 
-5) Powerlevel10k 配置向导（如果你使用 zsh + p10k）：
+5) Powerlevel10k 配置向导（如果你使用 zsh + p10k）（可忽略）：
 
 - 运行 `p10k configure`
 - 推荐选择：

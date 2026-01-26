@@ -61,7 +61,7 @@ EOF
 
 banner() {
   say "${C_CYN}${C_BOLD}╔══════════════════════════════╗${C_RST}"
-  say "${C_CYN}${C_BOLD}龙骨 Stage 1：Termux Desktop${C_RST}"
+  say "${C_CYN}${C_BOLD}  龙骨 Stage 1：Termux Desktop${C_RST}"
   say "${C_CYN}${C_BOLD}╚══════════════════════════════╝${C_RST}"
   say "${C_DIM}日志：$(basename "$LOG_FILE")${C_RST}"
 }
@@ -212,13 +212,13 @@ npm_global_install() {
 
 check_termux_x11_app() {
   section "前置提醒（务必截图保存）"
-  say "1) Termux 必须从 GitHub 安装（不要 Play 版）。"
+  say "1) Termux 必须从 GitHub 安装。"
   say "2) 必须安装 Termux:API。"
   say "3) 必须安装 Termux:X11。"
-  say "4) 必须安装 Termux:Styling（termux-style）。"
-  say "5) 建议以上四个都从 GitHub 顺便装齐（同源更省心）。"
-  say "6) 建议配合 MT 管理器使用（方便导入/管理文件）。"
-  say "7) 未 root 手机如何找到 Termux home 目录（用 MT 管理器）："
+  say "4) 必须安装 Termux:Styling。"
+  say "5) 建议以上四个都从 GitHub 安装。"
+  say "6) 建议配合 MT 管理器使用。"
+  say "7) 未root找Termux home目录方式："
   say "(1) 打开 MT 管理器"
   say "(2) 点击左上三条杠展开选项页"
   say "(3) 点击选项页右上角三点"
@@ -227,7 +227,7 @@ check_termux_x11_app() {
   say "(6) 选择 termux"
   say "(7) 选择允许访问 termux"
   say "8) 一般情况会出现 termuxhome。"
-  say "9) 如果找不到 termux home，就需要想办法了（先别继续安装）。"
+  say "9) 如果找不到 termux home，就需要想办法了。"
   say "10) 建议截图保存该页面。"
   say "● 保持手机常亮"
   say "● 保持 Termux 前台运行"
@@ -239,7 +239,7 @@ check_termux_x11_app() {
   say "- Termux:X11: https://github.com/termux/termux-x11/releases"
   say "- Termux:Styling: https://github.com/termux/termux-styling/releases"
   say
-  pause "你现在可以回车继续了（或 Ctrl+C 退出先去安装/截图）… "
+  pause "你现在可以回车继续了… "
 }
 
 install_node_and_tools() {
@@ -376,10 +376,10 @@ final_notes() {
   say "2) 现在请你左侧安全拉出 Termux UI。"
   say "3) 选择 New session 新建标签页。"
   say "4) 按照要求配置主题。"
-  say "5) 务必选择我们推荐给您的选项。"
+  say "5) 看不懂就尽量选第一个选项。"
   say "6) 以下是我们推荐的选项（请截图保存，后续会进入这些选项）："
   say
-  say "A) Termux Desktop 安装器内（必须按此选择）："
+  say "A) Termux Desktop 安装器内："
   say "A1) Select Install Type：1. Custom"
   say "A2) Select Desktop Environment：1. XFCE"
   say "A3) Select Style：1 (Basic Style)"
@@ -404,7 +404,7 @@ final_notes() {
   say "B2) Font：Custom（使用 ~/.termux/font.ttf）"
   say "B3) 执行：termux-reload-settings"
   say
-  say "C) Powerlevel10k 配置向导（p10k configure）建议："
+  say "C) Powerlevel10k 配置向导（可忽略）："
   say "C1) Font：Nerd Font v3 + Powerline"
   say "C2) Icons：Large icons"
   say "C3) Charset：Unicode"
@@ -414,7 +414,7 @@ final_notes() {
   say "C7) Spacing：Compact"
   say "C8) Icons density：Few icons / Concise"
   say "C9) Transient prompt：On"
-  say "C10) Instant prompt：Verbose（如遇兼容问题可关）"
+  say "C10) Instant prompt：Verbose"
   say
   say "● 保持手机常亮"
   say "● 保持 Termux 前台运行"
@@ -425,7 +425,7 @@ final_notes() {
   say "- tx11start"
   say "- codex --help"
   say
-  say "${C_GRN}Stage 1 完成。等你确认桌面能正常启动，我们再进入 Stage 2：恢复 motd/zsh/键位/定制 deepseek。${C_RST}"
+  say "${C_GRN}Stage 1 完成。后续继续 Stage 2：恢复 motd/zsh/键位/定制 deepseek。${C_RST}"
 }
 
 main() {
