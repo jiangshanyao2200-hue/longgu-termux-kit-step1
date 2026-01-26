@@ -71,6 +71,12 @@ section() {
   say "${C_BLU}${C_BOLD}== $* ==${C_RST}"
 }
 
+micro_pause() {
+  if (( PAUSE_LEVEL >= 2 )) && (( ! AUTO_YES )); then
+    sleep 0.35
+  fi
+}
+
 pause() {
   local prompt="${1:-按回车继续…}"
   if (( AUTO_YES )); then
@@ -137,12 +143,44 @@ retry() {
   done
 }
 
+print_required_installer_choices() {
+  section "必须按此选择（建议现在就截图保存）"
+  say "目标：安装出和当前这台“尽量一致”的 Termux Desktop（tx11start + XFCE + Chromium + VS Code 等）。"
+  say "如果你在安装器里选了别的，后续复原（Stage 2）可能对不上。"
+  say
+  say "${C_CYN}${C_BOLD}【安装器选项清单】${C_RST}"
+  say "1) Select Install Type：${C_BOLD}1. Custom${C_RST}"
+  say "2) Select Desktop Environment：${C_BOLD}1. XFCE${C_RST}"
+  say "3) Select Style：${C_BOLD}1 (Basic Style)${C_RST}"
+  say "4) Browser：${C_BOLD}2. chromium${C_RST}"
+  say "5) IDE：${C_BOLD}1. VS Code${C_RST}"
+  say "6) Media Player：${C_BOLD}2. Mpv${C_RST}"
+  say "7) Photo Editor：${C_BOLD}1. Gimp${C_RST}"
+  say "8) Wine：${C_BOLD}1. Native${C_RST}"
+  say "9) Hardware Acceleration：${C_BOLD}n${C_RST}"
+  say "10) Extra Wallpapers (1GB+)：${C_BOLD}n${C_RST}"
+  say "11) Shell：${C_BOLD}1. Zsh + zinit${C_RST}"
+  say "12) Zsh Theme：${C_BOLD}2. Powerlevel10k${C_RST}"
+  say "13) Terminal Utilities：${C_BOLD}y${C_RST}"
+  say "14) Nerd Font：${C_BOLD}Meslo${C_RST}"
+  say "15) File Manager Tools Enhancement：${C_BOLD}y${C_RST}"
+  say "16) GUI Mode：${C_BOLD}1. Termux:x11${C_RST}"
+  say "17) Desktop autostart at Termux startup：${C_BOLD}n${C_RST}"
+  say "18) Linux container：${C_BOLD}n${C_RST}"
+  say
+  say "${C_DIM}提示：进入安装器后按顺序照抄选择；有任何不确定，先退出再问。${C_RST}"
+  micro_pause
+  pause "请先截图保存这份清单，然后回车继续… "
+}
+
 pkg_update_upgrade() {
   section "更新系统（pkg update/upgrade）"
   say "这一步很慢很正常：它在为后续安装“铺路”。保持屏幕常亮、网络稳定即可。"
+  pause "准备好就回车开始更新/升级（会输出很多内容）… "
   retry "$RETRY_MAX" "$RETRY_SLEEP_S" pkg update -y || retry "$RETRY_MAX" "$RETRY_SLEEP_S" pkg update
   retry "$RETRY_MAX" "$RETRY_SLEEP_S" pkg upgrade -y || retry "$RETRY_MAX" "$RETRY_SLEEP_S" pkg upgrade
   say "${C_GRN}[ok] 系统更新完成。${C_RST}"
+  micro_pause
 }
 
 pkg_install() {
@@ -174,6 +212,7 @@ check_termux_x11_app() {
   say "  1) Termux 来自 GitHub/F-Droid（不要 Play 版）"
   say "  2) 已安装 Termux:API 与 Termux:X11（APK）"
   say "  3) Android 12+ 建议关闭 Phantom Process Killer（否则桌面可能被杀）"
+  say "  4) 建议：充电 + Wi‑Fi + 屏幕常亮（后面下载会很久）"
   say
   if command -v pm >/dev/null 2>&1; then
     if pm list packages 2>/dev/null | grep -q '^package:com.termux.x11$'; then
@@ -220,6 +259,7 @@ install_node_and_tools() {
 manual_repo_check() {
   section "Termux Desktop 前：启用仓库并手动测试源"
   say "这一步的核心：确保 x11-repo/tur-repo 的源顺畅，否则后面会非常折磨。"
+  pause "回车继续启用仓库… "
   pkg_install x11-repo tur-repo
   say
   say "建议你手动确认：termux-x11-nightly 是否能被找到（代表源 OK）。"
@@ -234,23 +274,7 @@ manual_repo_check() {
 }
 
 desktop_choice_tips() {
-  section "Termux Desktop 安装建议（你在安装器里这样选）"
-  say "你要的是 Termux:X11 + tx11start 这套，而且要尽量“和我们现在一样”，建议："
-  say "  0) Select Install Type：选 ${C_BOLD}1. Custom${C_RST}（要复刻环境必须选它）"
-  say "  1) GUI Mode：选 ${C_BOLD}Termux:x11${C_RST}（不要选 Both）"
-  say "  2) Desktop/WM：选 ${C_BOLD}XFCE${C_RST}"
-  if (( DESKTOP_LITE )); then
-    say "  3) 你当前设置 DESKTOP_LITE=1：会走“Lite Install”（更快、更省空间）"
-  else
-    say "  3) 如果你是新机/空间紧张：建议先用 ${C_BOLD}Lite Install${C_RST}；跑通后再补装可选项"
-  fi
-  say
-  say "桌面装好后常用命令（安装器会创建）："
-  say "  - tx11start            启动（默认）"
-  say "  - tx11start --nogpu    兼容优先（图形异常时）"
-  say "  - tx11start --legacy   兼容优先（绘制问题时）"
-  say "  - tx11stop             停止"
-  pause "建议先截图保存上述“选项建议”，再回车开始安装（会很久）… "
+  print_required_installer_choices
 }
 
 fetch_desktop_installer_curl() {
