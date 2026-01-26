@@ -82,7 +82,7 @@
 
   Powerlevel10k 配置向导：
 
-- 运行 `p10k configure`
+- 运行 `p10k configure`（首次启动自动运行）
 
 - 推荐选择或按需选择：
   - Nerd Font v3 + Powerline
