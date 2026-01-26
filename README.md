@@ -1,4 +1,4 @@
-# Termux upgrade Stage 1
+# Termux 界面定制 Stage 1
 
 这是一个“只做环境就绪”的一键脚本
 
