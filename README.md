@@ -1,24 +1,19 @@
-# Termux Stage 1（tx11start / Termux:X11）
+# Termux upgrade Stage 1
 
-这是一个“只做环境就绪”的一键脚本（Stage 1）：
+这是一个“只做环境就绪”的一键脚本
+
+注意：git后运行
+
+>Stage 1：
 
 - `pkg update/upgrade`
 - 安装：`nodejs`、`git`、`termux-api`
 - 全局安装：`openai`、`@openai/codex`
 - 引导安装 **Termux Desktop（sabamdarif/termux-desktop）**，目标是 `Termux:X11 + tx11start`
 
-> Stage 2（motd/zsh/键位/DeepSeek 定制复原）不在这个仓库里。
+> Stage 2（motd/zsh/键位/DeepSeek 定制复原）
+不在这个仓库里。
 
-## 使用
-
-```bash
-bash stage1-prereqs.sh
-```
-
-建议第一次先用“可观察模式”（更多停顿/方便截图）：
-
-```bash
-PAUSE_LEVEL=2 bash stage1-prereqs.sh
 ```
 
 ## 常用参数（环境变量）
