@@ -15,7 +15,9 @@ INSTALL_DESKTOP="${INSTALL_DESKTOP:-1}"  # 0: 跳过桌面安装
 DESKTOP_LITE="${DESKTOP_LITE:-0}"        # 1: termux-desktop 走 LITE 模式
 RETRY_MAX="${RETRY_MAX:-4}"              # 网络/源偶发抖动时会救命
 RETRY_SLEEP_S="${RETRY_SLEEP_S:-3}"
+PAUSE_LEVEL="${PAUSE_LEVEL:-1}"          # 0: 少停顿  1: 关键节点停顿(默认)  2: 更多停顿
 LOG_FILE="${LOG_FILE:-$HOME/longgu-stage1.log}"
+DESKTOP_INSTALLER_SOURCE="${DESKTOP_INSTALLER_SOURCE:-curl}" # curl|git|auto
 
 if [ -t 1 ] && [ -n "${TERM:-}" ]; then
   C_DIM=$'\033[2m'
@@ -45,9 +47,11 @@ Termux Stage 1：基础环境 + Termux Desktop（Termux:X11 / tx11start）
   AUTO_YES=1           跳过所有“回车确认”
   INSTALL_DESKTOP=0    不安装 Termux Desktop，只装 Node/Codex
   DESKTOP_LITE=1       termux-desktop 使用 Lite 模式（更快更省）
+  PAUSE_LEVEL=2        更多停顿（方便观察/截图）
   RETRY_MAX=6          失败最大重试次数（默认 4）
   RETRY_SLEEP_S=3      首次重试等待秒数（默认 3，会逐次递增）
   LOG_FILE=~/xxx.log   指定日志文件（默认 ~/longgu-stage1.log）
+  DESKTOP_INSTALLER_SOURCE=auto  安装器来源：auto/curl/git（默认 curl）
 
 说明：
   - Termux Desktop 使用上游安装器：sabamdarif/termux-desktop
@@ -56,9 +60,9 @@ EOF
 }
 
 banner() {
-  say "${C_CYN}${C_BOLD}╔══════════════════════════════════════════════════════╗${C_RST}"
-  say "${C_CYN}${C_BOLD}║  龙骨 Termux Stage 1：基础环境 + Termux Desktop     ║${C_RST}"
-  say "${C_CYN}${C_BOLD}╚══════════════════════════════════════════════════════╝${C_RST}"
+  say "${C_CYN}${C_BOLD}╔══════════════════════════════╗${C_RST}"
+  say "${C_CYN}${C_BOLD}║ 龙骨 Stage 1：Termux Desktop  ║${C_RST}"
+  say "${C_CYN}${C_BOLD}╚══════════════════════════════╝${C_RST}"
   say "${C_DIM}日志：$LOG_FILE${C_RST}"
 }
 
@@ -72,6 +76,11 @@ pause() {
   if (( AUTO_YES )); then
     say "${C_DIM}[stage1] AUTO_YES=1：跳过确认：$prompt${C_RST}"
     log "AUTO_YES skip: $prompt"
+    return 0
+  fi
+  if (( PAUSE_LEVEL <= 0 )); then
+    say "${C_DIM}[stage1] PAUSE_LEVEL=0：跳过停顿：$prompt${C_RST}"
+    log "PAUSE_LEVEL skip: $prompt"
     return 0
   fi
   read -r -p "$prompt" _ </dev/tty || true
@@ -181,14 +190,19 @@ check_termux_x11_app() {
 
 install_node_and_tools() {
   section "安装基础依赖（nodejs/git/termux-api 等）"
+  say "提示：这一步会安装 Node/NPM，后面要用它装 codex。"
+  pause "准备好就回车继续安装基础依赖… "
   pkg_install git curl ca-certificates nodejs python termux-api termux-tools
 
   section "校验 Node/NPM"
   retry 1 0 node -v
   retry 1 0 npm -v
+  pause "看到 Node/NPM 版本号后回车继续（建议截图留档）… "
 
   section "安装 OpenAI / Codex（npm 全局）"
   say "说明：openai 通常是“项目依赖”，但你需要一键安装，这里按全局安装处理。"
+  say "提示：npm 全局安装也可能慢，属正常现象。"
+  pause "准备好就回车开始安装 openai / codex… "
   npm_global_install openai
   npm_global_install @openai/codex
 
@@ -200,6 +214,7 @@ install_node_and_tools() {
     (codex --version 2>/dev/null || codex --help >/dev/null) || true
   fi
   say "${C_GRN}[ok] Node/OpenAI/Codex 就绪。${C_RST}"
+  pause "确认 codex 可用后回车继续… "
 }
 
 manual_repo_check() {
@@ -220,9 +235,10 @@ manual_repo_check() {
 
 desktop_choice_tips() {
   section "Termux Desktop 安装建议（你在安装器里这样选）"
-  say "你要的是 Termux:X11 + tx11start 这套，我建议："
-  say "  1) GUI Mode：选 ${C_BOLD}Termux:x11（不要选 Both）${C_RST}"
-  say "  2) Desktop/WM：选 ${C_BOLD}XFCE${C_RST}（兼容性最好、也最接近你现在的环境）"
+  say "你要的是 Termux:X11 + tx11start 这套，而且要尽量“和我们现在一样”，建议："
+  say "  0) Select Install Type：选 ${C_BOLD}1. Custom${C_RST}（要复刻环境必须选它）"
+  say "  1) GUI Mode：选 ${C_BOLD}Termux:x11${C_RST}（不要选 Both）"
+  say "  2) Desktop/WM：选 ${C_BOLD}XFCE${C_RST}"
   if (( DESKTOP_LITE )); then
     say "  3) 你当前设置 DESKTOP_LITE=1：会走“Lite Install”（更快、更省空间）"
   else
@@ -234,7 +250,27 @@ desktop_choice_tips() {
   say "  - tx11start --nogpu    兼容优先（图形异常时）"
   say "  - tx11start --legacy   兼容优先（绘制问题时）"
   say "  - tx11stop             停止"
-  pause "记住这些建议后回车开始安装（会很久）… "
+  pause "建议先截图保存上述“选项建议”，再回车开始安装（会很久）… "
+}
+
+fetch_desktop_installer_curl() {
+  local installer="$1"
+  retry "$RETRY_MAX" "$RETRY_SLEEP_S" curl -fL --connect-timeout 20 --max-time 600 \
+    "https://raw.githubusercontent.com/sabamdarif/termux-desktop/main/setup-termux-desktop" -o "$installer"
+  retry 1 0 chmod +x "$installer"
+}
+
+fetch_desktop_installer_git() {
+  local installer="$1"
+  local dir="$HOME/.cache/termux-desktop-upstream"
+  retry 1 0 mkdir -p "$HOME/.cache"
+  if [[ -d "$dir/.git" ]]; then
+    retry "$RETRY_MAX" "$RETRY_SLEEP_S" git -C "$dir" pull --rebase --autostash
+  else
+    retry "$RETRY_MAX" "$RETRY_SLEEP_S" git clone --depth=1 https://github.com/sabamdarif/termux-desktop.git "$dir"
+  fi
+  retry 1 0 cp -a "$dir/setup-termux-desktop" "$installer"
+  retry 1 0 chmod +x "$installer"
 }
 
 install_termux_desktop() {
@@ -244,9 +280,19 @@ install_termux_desktop() {
   say
 
   local installer="$HOME/setup-termux-desktop"
-  retry "$RETRY_MAX" "$RETRY_SLEEP_S" curl -fL --connect-timeout 20 --max-time 600 \
-    "https://raw.githubusercontent.com/sabamdarif/termux-desktop/main/setup-termux-desktop" -o "$installer"
-  retry 1 0 chmod +x "$installer"
+  if [[ "$DESKTOP_INSTALLER_SOURCE" == "curl" ]]; then
+    fetch_desktop_installer_curl "$installer"
+  elif [[ "$DESKTOP_INSTALLER_SOURCE" == "git" ]]; then
+    fetch_desktop_installer_git "$installer"
+  else
+    # auto：先 curl，失败再 git
+    if ! fetch_desktop_installer_curl "$installer"; then
+      say "${C_YLW}[stage1] curl 获取安装器失败，改用 git clone 兜底…${C_RST}"
+      fetch_desktop_installer_git "$installer"
+    fi
+  fi
+
+  pause "准备进入 Termux Desktop 安装器（会出现很多选项）。回车继续… "
 
   local start_ts end_ts
   start_ts="$(date +%s)"

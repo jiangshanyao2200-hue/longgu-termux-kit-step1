@@ -27,7 +27,7 @@ bash stage1-prereqs.sh
 
 ## Termux Desktop 安装时的建议选择
 
+- Select Install Type：选 `1. Custom`
 - GUI Mode：选 `Termux:x11`（不要选 Both）
 - Desktop/WM：选 `XFCE`
 - 图形异常时：启动用 `tx11start --nogpu` 或 `tx11start --legacy`
-
