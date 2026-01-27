@@ -1,6 +1,9 @@
 # Termux 界面定制 Stage 1
 
 目标：将您的termux快速升级强化
+使用前必备termux，termuxapi，termuxtx11，termuxstyling，均在github。本脚本只协助做快速安装和部署，非本人开发。
+
+官方为termux，termuxdesktop。
 
 1️⃣ 安装termux进入
 
@@ -73,6 +76,7 @@
 18) Linux container：`n`
 
 提示：
+- tx11start进入xfce桌面
 - 图形异常时：启动用 `tx11start --nogpu` 或 `tx11start --legacy`
 - 硬件加速当前按“禁用”复刻；后续你要追求性能再单独开（避免新机型/ROM 兼容坑）。
 
