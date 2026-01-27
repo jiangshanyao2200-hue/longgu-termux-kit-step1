@@ -27,21 +27,19 @@
 - 全局安装：`openai`、`@openai/codex`
 - 引导安装 **Termux Desktop（sabamdarif/termux-desktop）**，目标是 `Termux:X11 + tx11start`
 
-> Stage 2（motd/zsh/键位/DeepSeek 定制复原）
-不在这个仓库里。
+> Stage 2（AI termux强化）
+不在这个仓库里，正在开发
 
 
 ## Termux Desktop 安装时的建议选择
 
 日志默认写到：`~/longgu-stage1.log`
 
-安装器里请严格按下列选择：
-
-说明：如果您不准备使用我们定制的主题（step2）
+Ternux destktop安装器选项说明：
 
  您可以进行自由选择
 
- 选择中有不懂的可以咨询任意AI
+ 选择中有不懂的可以咨询AI
 
  这些配置通常是关于desktop的：
 
@@ -55,47 +53,61 @@
 
  ●字体选择
 
- 
-1) Select Install Type：`1. Custom`
-2) Select Desktop Environment：`1. XFCE`
-3) Select Style：`1 (Basic Style)`
-4) Browser：`2. chromium`
-5) IDE：`1. VS Code`
-6) Media Player：`2. Mpv`
-7) Photo Editor：`1. Gimp`
-8) Wine：`1. Native`
-9) Hardware Acceleration：`n`
-10) Extra Wallpapers (1GB+)：`n`
-11) Shell：`1. Zsh + zinit`
-12) Zsh Theme：`2. Powerlevel10k`
-13) Terminal Utilities：`y`
-14) Nerd Font：`Meslo`
-15) File Manager Tools Enhancement：`y`
-16) GUI Mode：`1. Termux:x11`（不要选 Both）
-17) Desktop autostart at Termux startup：`n`
-18) Linux container：`n`
+推荐选项
 
+1 安装类型 选3 Generic With Hardware Acceleration（开启硬件加速），根据处理器决定。
+
+2 桌面环境 选1 xfce
+
+3 桌面风格 选5 modern style（现代风格）
+
+快速全面自动
+
+
+另外
+
+
+如果在选项1你选择了 custom 自定义
+
+则会包含大量自定义选项
+
+Select Install Type：1. Custom
+
+Select Desktop Environment：1. XFCE （推荐）
+
+Select Style：1 (Basic Style) or 5 （modern）（桌面风格 1极简5现代化）
+
+Browser：（浏览器）
+
+IDE：（开发工具）
+
+Media Player：（视频播放器）
+
+Photo Editor：（图片编辑器）
+
+Wine：扩展系统（如Windows）
+
+Hardware Acceleration：（硬件加速）
+
+Extra Wallpapers (1GB+)：（更多壁纸）
+
+Shell：1. Zsh + zinit（termux美化 推荐1）
+
+Zsh Theme：2. Powerlevel10k（推荐2）
+
+Terminal Utilities：y（增强工具包推荐y）
+
+Nerd Font：字体（推荐MesloLGS NF）
+
+File Manager Tools Enhancement：y（推荐y）
+
+GUI Mode：1. Termux:x11（不要选Both推荐x11）
+
+Desktop autostart at Termux startup：n（不要自启动 选n）
+
+Linux container：Linux容器（推荐n 需要自己再装）
+ 
 提示：
 - tx11start进入xfce桌面
 - 图形异常时：启动用 `tx11start --nogpu` 或 `tx11start --legacy`
 - 硬件加速当前按“禁用”复刻；后续你要追求性能再单独开（避免新机型/ROM 兼容坑）。
-
-## 安装完成后
-
- “Stage 1 完成” 后：重启进入
-
-  Powerlevel10k 配置向导：
-
-- 运行 `p10k configure`（首次启动自动运行）
-
-- 推荐选择或按需选择：
-  - Nerd Font v3 + Powerline
-  - Large icons
-  - Unicode
-  - Lean
-  - 12h time
-  - 2 line
-  - Compact
-  - Few icons / Concise
-  - Transient prompt：On
-  - Instant prompt：Verbose（如遇兼容问题可关）
