@@ -109,6 +109,7 @@ Desktop autostart at Termux startup：n（不要自启动 选n）
 Linux container：Linux容器（推荐n 需要自己再装）
  
 提示：
+
 - tx11start进入xfce桌面
+
 - 图形异常时：启动用 `tx11start --nogpu` 或 `tx11start --legacy`
-- 硬件加速当前按“禁用”复刻；后续你要追求性能再单独开（避免新机型/ROM 兼容坑）。
