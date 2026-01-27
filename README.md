@@ -27,7 +27,8 @@
 - 全局安装：`openai`、`@openai/codex`
 - 引导安装 **Termux Desktop（sabamdarif/termux-desktop）**，目标是 `Termux:X11 + tx11start`
 
-> Stage 2（AI termux强化）
+> Stage 2（AI termux强化）:
+
 不在这个仓库里，正在开发
 
 
