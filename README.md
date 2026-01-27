@@ -56,7 +56,7 @@ Ternux destktop安装器选项说明：
 
 推荐选项
 
-1 安装类型 选3 Generic With Hardware Acceleration（开启硬件加速），根据处理器决定。
+1 安装类型 选2 Generic With Hardware Acceleration（开启硬件加速），根据处理器决定。
 
 2 桌面环境 选1 xfce
 
