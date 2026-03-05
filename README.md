@@ -12,11 +12,6 @@
 
 3 termux-tx11
 
-可选
-
-4 termux-styling
-
-
 所有APP安装完成后
 
 
