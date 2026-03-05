@@ -1,15 +1,25 @@
 # Termux 界面定制 Stage 1
 
 目标：将您的termux快速升级强化
+
 使用前必备：
+
 在GitHub下载app
+
 1 termux
+
 2 termux-api
+
 3 termux-tx11
+
 可选
+
 4 termux-styling
+
 termux扩展均在github。
+
 本脚本只协助做快速安装和部署，非本人开发。
+
 
 官方为termux，termuxdesktop。
 
