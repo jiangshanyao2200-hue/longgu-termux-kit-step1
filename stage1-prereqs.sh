@@ -3,8 +3,7 @@ set -euo pipefail
 
 # Stage 1: 只负责“环境就绪”
 # - pkg upgrade
-# - 安装 nodejs/git/termux-api
-# - npm 全局安装 openai 与 @openai/codex
+# - 安装基础依赖
 # - 安装并引导用户完成 Termux Desktop（建议使用 sabamdarif/termux-desktop）
 #
 # 设计目标：可重复执行；关键节点暂停让用户手动检查/确认。
@@ -18,6 +17,17 @@ RETRY_SLEEP_S="${RETRY_SLEEP_S:-3}"
 PAUSE_LEVEL="${PAUSE_LEVEL:-1}"          # 0: 少停顿  1: 关键节点停顿(默认)  2: 更多停顿
 LOG_FILE="${LOG_FILE:-$HOME/longgu-stage1.log}"
 DESKTOP_INSTALLER_SOURCE="${DESKTOP_INSTALLER_SOURCE:-curl}" # curl|git|auto
+STEP_INDEX=0
+STEP_TOTAL=0
+CACHE_DIR="${HOME}/.cache/longgu-stage1"
+UPSTREAM_CACHE_DIR="${CACHE_DIR}/termux-desktop-upstream"
+TMP_INSTALLER=""
+DESKTOP_INSTALLER_URL="https://raw.githubusercontent.com/sabamdarif/termux-desktop/main/setup-termux-desktop"
+DESKTOP_UPSTREAM_REPO="https://github.com/sabamdarif/termux-desktop.git"
+TERMUX_APP_URL="https://github.com/termux/termux-app/releases"
+TERMUX_API_URL="https://github.com/termux/termux-api/releases"
+TERMUX_X11_URL="https://github.com/termux/termux-x11/releases"
+BASE_PACKAGES=(git curl ca-certificates termux-api termux-tools)
 
 if [ -t 1 ] && [ -n "${TERM:-}" ]; then
   C_DIM=$'\033[2m'
@@ -34,41 +44,198 @@ fi
 
 say() { printf "%s\n" "$*"; }
 log() { printf "%s %s\n" "$(date +'%F %T')" "$*" >>"$LOG_FILE" 2>/dev/null || true; }
+die() { say "${C_RED}${C_BOLD}[FAIL] $*${C_RST}" >&2; exit 1; }
+
+repeat_char() {
+  local ch="$1"
+  local count="$2"
+  local out=""
+  while (( ${#out} < count )); do
+    out="${out}${ch}"
+  done
+  printf "%s" "${out:0:count}"
+}
+
+progress_bar() {
+  local current="$1"
+  local total="$2"
+  local width=10
+  local filled=0
+  local empty
+  if (( total > 0 )); then
+    filled=$(( current * width / total ))
+  fi
+  (( filled > width )) && filled=$width
+  empty=$(( width - filled ))
+  printf "[%s%s]" "$(repeat_char "=" "$filled")" "$(repeat_char "." "$empty")"
+}
+
+info() { say "${C_CYN}${C_BOLD}[INFO]${C_RST} $*"; }
+warn() { say "${C_YLW}${C_BOLD}[WARN]${C_RST} $*"; }
+ok() { say "${C_GRN}${C_BOLD}[ OK ]${C_RST} $*"; }
+skip() { say "${C_DIM}${C_BOLD}[SKIP]${C_RST} $*"; }
+run_msg() { say "${C_CYN}${C_BOLD}[RUN ]${C_RST} $*"; }
+item() { say "  - $*"; }
+is_enabled() { [[ "${1:-0}" == "1" ]]; }
+
+validate_bool_flag() {
+  local name="$1"
+  local value="$2"
+  [[ "$value" =~ ^[01]$ ]] || die "${name} 仅支持 0 或 1，当前值：${value}"
+}
+
+validate_uint_range() {
+  local name="$1"
+  local value="$2"
+  local min="$3"
+  local max="$4"
+  [[ "$value" =~ ^[0-9]+$ ]] || die "${name} 必须是整数，当前值：${value}"
+  (( value >= min && value <= max )) || die "${name} 必须在 ${min}-${max} 之间，当前值：${value}"
+}
+
+validate_env_settings() {
+  validate_bool_flag "DRY_RUN" "$DRY_RUN"
+  validate_bool_flag "AUTO_YES" "$AUTO_YES"
+  validate_bool_flag "INSTALL_DESKTOP" "$INSTALL_DESKTOP"
+  validate_bool_flag "DESKTOP_LITE" "$DESKTOP_LITE"
+  validate_uint_range "RETRY_MAX" "$RETRY_MAX" 1 20
+  validate_uint_range "RETRY_SLEEP_S" "$RETRY_SLEEP_S" 0 120
+  validate_uint_range "PAUSE_LEVEL" "$PAUSE_LEVEL" 0 2
+  [[ -n "$LOG_FILE" ]] || die "LOG_FILE 不能为空。"
+  case "$DESKTOP_INSTALLER_SOURCE" in
+    auto|curl|git) ;;
+    *) die "DESKTOP_INSTALLER_SOURCE 仅支持 auto、curl、git，当前值：${DESKTOP_INSTALLER_SOURCE}" ;;
+  esac
+}
+
+prepare_log_file() {
+  local log_dir
+  log_dir="$(dirname "$LOG_FILE")"
+  mkdir -p "$log_dir" 2>/dev/null || true
+  : >"$LOG_FILE" 2>/dev/null || true
+}
+
+prepare_cache_dir() {
+  mkdir -p "$CACHE_DIR" || die "无法创建缓存目录：$CACHE_DIR"
+}
+
+prepare_runtime() {
+  prepare_cache_dir
+  prepare_log_file
+}
+
+prepare_temp_installer() {
+  prepare_cache_dir
+  if (( DRY_RUN )); then
+    TMP_INSTALLER="${CACHE_DIR}/setup-termux-desktop.dryrun"
+    return 0
+  fi
+  TMP_INSTALLER="$(mktemp "${CACHE_DIR}/setup-termux-desktop.XXXXXX")" || die "无法创建临时安装器文件。"
+}
+
+cleanup() {
+  if [[ -n "${TMP_INSTALLER:-}" && -e "$TMP_INSTALLER" && "$TMP_INSTALLER" == "$CACHE_DIR"/setup-termux-desktop* ]]; then
+    rm -f -- "$TMP_INSTALLER" 2>/dev/null || true
+  fi
+}
+
+setup_step_total() {
+  STEP_INDEX=0
+  STEP_TOTAL=5
+  if is_enabled "$INSTALL_DESKTOP"; then
+    STEP_TOTAL=7
+  fi
+}
+
+show_overview() {
+  say
+  info "流程概览："
+  item "前置提醒"
+  item "环境信息"
+  item "更新系统"
+  item "安装基础依赖"
+  if is_enabled "$INSTALL_DESKTOP"; then
+    item "启用仓库"
+    item "安装 Termux Desktop"
+    item "手动验证"
+  else
+    item "跳过桌面安装"
+  fi
+}
+
+show_completion_summary() {
+  local desktop_done="${1:-1}"
+  say
+  say "${C_CYN}${C_BOLD}+------------------------+${C_RST}"
+  say "${C_CYN}${C_BOLD}| 完成摘要               |${C_RST}"
+  say "${C_CYN}${C_BOLD}+------------------------+${C_RST}"
+  info "已完成："
+  item "前置检查"
+  item "环境信息"
+  item "系统更新"
+  item "基础依赖"
+  if (( desktop_done )); then
+    item "仓库启用"
+    item "Termux Desktop"
+    say
+    info "下一步："
+    item "command -v tx11start"
+    item "tx11start"
+  else
+    say
+    info "下一步："
+    item "如需桌面，重新运行脚本"
+    item "bash stage1-prereqs.sh"
+  fi
+  say
+  say "${C_DIM}log: $(basename "$LOG_FILE")${C_RST}"
+}
 
 show_help() {
-  cat <<'EOF'
-Termux Stage 1：基础环境 + Termux Desktop（Termux:X11 / tx11start）
-
-用法：
-  bash stage1-prereqs.sh
-
-常用参数（环境变量）：
-  DRY_RUN=1            只打印不执行（预览流程）
-  AUTO_YES=1           跳过所有“回车确认”
-  INSTALL_DESKTOP=0    不安装 Termux Desktop，只装 Node/Codex
-  DESKTOP_LITE=1       termux-desktop 使用 Lite 模式（更快更省）
-  PAUSE_LEVEL=2        更多停顿（方便观察/截图）
-  RETRY_MAX=6          失败最大重试次数（默认 4）
-  RETRY_SLEEP_S=3      首次重试等待秒数（默认 3，会逐次递增）
-  LOG_FILE=~/xxx.log   指定日志文件（默认 ~/longgu-stage1.log）
-  DESKTOP_INSTALLER_SOURCE=auto  安装器来源：auto/curl/git（默认 curl）
-
-说明：
-  - Termux Desktop 使用上游安装器：sabamdarif/termux-desktop
-  - 目标是 Termux:X11 + tx11start（脚本会给出推荐选项）
-EOF
+  banner
+  show_overview
+  say
+  info "用法："
+  item "bash stage1-prereqs.sh"
+  say
+  info "常用变量："
+  item "DRY_RUN=1 预览流程"
+  item "AUTO_YES=1 跳过确认"
+  item "INSTALL_DESKTOP=0 只装基础依赖"
+  item "DESKTOP_LITE=1 使用 Lite 模式"
+  item "PAUSE_LEVEL=2 增加停顿"
+  item "RETRY_MAX=6 增加重试次数"
+  item "RETRY_SLEEP_S=3 设置重试等待"
+  item "LOG_FILE=~/xxx.log 自定义日志"
+  item "DESKTOP_INSTALLER_SOURCE=auto|curl|git"
+  say
+  info "说明："
+  item "Termux Desktop 使用上游安装器"
+  item "目标环境为 Termux:X11 + tx11start"
 }
 
 banner() {
-  say "${C_CYN}${C_BOLD}╔══════════════════════════════╗${C_RST}"
-  say "${C_CYN}${C_BOLD}  龙骨 Stage 1：Termux Desktop${C_RST}"
-  say "${C_CYN}${C_BOLD}╚══════════════════════════════╝${C_RST}"
-  say "${C_DIM}日志：$(basename "$LOG_FILE")${C_RST}"
+  local desktop_mode="standard"
+  if is_enabled "$DESKTOP_LITE"; then
+    desktop_mode="lite"
+  fi
+  say "${C_CYN}${C_BOLD}+------------------------+${C_RST}"
+  say "${C_CYN}${C_BOLD}| LONGGU STAGE 1         |${C_RST}"
+  say "${C_CYN}${C_BOLD}| Termux Desktop Setup   |${C_RST}"
+  say "${C_CYN}${C_BOLD}+------------------------+${C_RST}"
+  say "${C_DIM}mode: ${desktop_mode}${C_RST}"
+  say "${C_DIM}source: ${DESKTOP_INSTALLER_SOURCE}${C_RST}"
+  say "${C_DIM}log: $(basename "$LOG_FILE")${C_RST}"
 }
 
 section() {
+  local bar
+  STEP_INDEX=$(( STEP_INDEX + 1 ))
+  bar="$(progress_bar "$STEP_INDEX" "$STEP_TOTAL")"
   say
-  say "${C_BLU}${C_BOLD}== $* ==${C_RST}"
+  say "${C_BLU}${C_BOLD}${bar} Step ${STEP_INDEX}/${STEP_TOTAL}${C_RST}"
+  say "${C_BOLD}$*${C_RST}"
+  say "${C_DIM}$(repeat_char "-" 24)${C_RST}"
 }
 
 micro_pause() {
@@ -80,12 +247,12 @@ micro_pause() {
 pause() {
   local prompt="${1:-按回车继续…}"
   if (( AUTO_YES )); then
-    say "${C_DIM}[stage1] AUTO_YES=1：跳过确认：$prompt${C_RST}"
+    skip "AUTO_YES=1：$prompt"
     log "AUTO_YES skip: $prompt"
     return 0
   fi
   if (( PAUSE_LEVEL <= 0 )); then
-    say "${C_DIM}[stage1] PAUSE_LEVEL=0：跳过停顿：$prompt${C_RST}"
+    skip "PAUSE_LEVEL=0：$prompt"
     log "PAUSE_LEVEL skip: $prompt"
     return 0
   fi
@@ -94,20 +261,20 @@ pause() {
 
 need_termux() {
   if [[ -z "${PREFIX:-}" || "$PREFIX" != *"/com.termux/"* ]]; then
-    say "${C_RED}[stage1] 请在 Termux 内运行此脚本。${C_RST}" >&2
-    exit 1
+    die "请在 Termux 内运行此脚本。"
   fi
 }
 
 on_err() {
   local code=$?
   say
-  say "${C_RED}${C_BOLD}[stage1] 出错退出（code=$code）。${C_RST}"
-  say "${C_YLW}你可以直接重跑脚本；多数失败来自网络/源抖动，重试通常可恢复。${C_RST}"
+  say "${C_RED}${C_BOLD}[FAIL] 脚本退出（code=$code）${C_RST}"
+  warn "可直接重跑，常见原因是网络或源抖动。"
   say "${C_DIM}日志：$LOG_FILE${C_RST}"
   exit "$code"
 }
 trap on_err ERR
+trap cleanup EXIT
 
 retry() {
   local max="${1}"; shift
@@ -115,12 +282,12 @@ retry() {
   local attempt=1
   while true; do
     if (( DRY_RUN )); then
-      say "${C_DIM}+ $*${C_RST}"
+      skip "DRY_RUN: $*"
       log "DRY_RUN: $*"
       return 0
     fi
 
-    say "${C_CYN}+ $*${C_RST}"
+    run_msg "$*"
     log "RUN: $*"
 
     set +e
@@ -131,11 +298,11 @@ retry() {
       return 0
     fi
     if (( attempt >= max )); then
-      say "${C_RED}[retry] 已重试 ${attempt}/${max} 次仍失败：$*${C_RST}"
+      warn "已重试 ${attempt}/${max} 次仍失败。"
       log "FAIL rc=$rc after ${attempt}/${max}: $*"
       return "$rc"
     fi
-    say "${C_YLW}[retry] 失败（rc=$rc），${sleep_s}s 后重试 ${attempt}/${max}…${C_RST}"
+    warn "失败 rc=$rc，${sleep_s}s 后重试 ${attempt}/${max}。"
     log "RETRY rc=$rc attempt=${attempt}/${max} sleep=${sleep_s}: $*"
     sleep "$sleep_s"
     attempt=$(( attempt + 1 ))
@@ -143,48 +310,13 @@ retry() {
   done
 }
 
-print_required_installer_choices() {
-  section "必须按此选择（建议现在就截图保存）"
-  say "目标：安装出和当前这台“尽量一致”的 Termux Desktop（tx11start + XFCE + Chromium + VS Code 等）。"
-  say "如果你在安装器里选了别的，后续复原（Stage 2）可能对不上。"
-  say
-  say "${C_CYN}${C_BOLD}【安装器选项清单】${C_RST}"
-  say "1) Select Install Type：${C_BOLD}1. Custom${C_RST}"
-  say "2) Select Desktop Environment：${C_BOLD}1. XFCE${C_RST}"
-  say "3) Select Style：${C_BOLD}1 (Basic Style)${C_RST}"
-  say "4) Browser：${C_BOLD}2. chromium${C_RST}"
-  say "5) IDE：${C_BOLD}1. VS Code${C_RST}"
-  say "6) Media Player：${C_BOLD}2. Mpv${C_RST}"
-  say "7) Photo Editor：${C_BOLD}1. Gimp${C_RST}"
-  say "8) Wine：${C_BOLD}1. Native${C_RST}"
-  say "9) Hardware Acceleration：${C_BOLD}n${C_RST}"
-  say "10) Extra Wallpapers (1GB+)：${C_BOLD}n${C_RST}"
-  say "11) Shell：${C_BOLD}1. Zsh + zinit${C_RST}"
-  say "12) Zsh Theme：${C_BOLD}2. Powerlevel10k${C_RST}"
-  say "13) Terminal Utilities：${C_BOLD}y${C_RST}"
-  say "14) Nerd Font：${C_BOLD}Meslo${C_RST}"
-  say "15) File Manager Tools Enhancement：${C_BOLD}y${C_RST}"
-  say "16) GUI Mode：${C_BOLD}1. Termux:x11${C_RST}"
-  say "17) Desktop autostart at Termux startup：${C_BOLD}n${C_RST}"
-  say "18) Linux container：${C_BOLD}n${C_RST}"
-  say
-  say "${C_DIM}提示：进入安装器后按顺序照抄选择；有任何不确定，先退出再问。${C_RST}"
-  micro_pause
-  pause "请先截图保存这份清单，然后回车继续… "
-}
-
 pkg_update_upgrade() {
-  section "更新系统（pkg update/upgrade）"
-  say "这一步很慢很正常：它在为后续安装“铺路”。保持屏幕常亮、网络稳定即可。"
-  say "重要：过程中可能会弹出交互提示，需要你手动输入 y 并回车继续（别发呆）。"
-  say "常见提示示例："
-  say "- Do you want to continue? [Y/n]"
-  say "- Replace this configuration file? [Y/I/N/O/D/Z]"
-  say "如果遇到第二类配置文件提示：不确定就先按回车用默认值；想保留自己改过的就选 N。"
-  pause "准备好就回车开始更新/升级（会输出很多内容）… "
+  section "更新系统"
+  info "如果出现确认提示，按提示继续即可。"
+  pause "回车开始更新系统… "
   retry "$RETRY_MAX" "$RETRY_SLEEP_S" pkg update -y || retry "$RETRY_MAX" "$RETRY_SLEEP_S" pkg update
   retry "$RETRY_MAX" "$RETRY_SLEEP_S" pkg upgrade -y || retry "$RETRY_MAX" "$RETRY_SLEEP_S" pkg upgrade
-  say "${C_GRN}[ok] 系统更新完成。${C_RST}"
+  ok "系统更新完成。"
   micro_pause
 }
 
@@ -193,253 +325,152 @@ pkg_install() {
   retry "$RETRY_MAX" "$RETRY_SLEEP_S" pkg install -y "${pkgs[@]}"
 }
 
-npm_global_has() {
-  local name="$1"
-  if ! command -v npm >/dev/null 2>&1; then
-    return 1
-  fi
-  npm -g ls --depth=0 "$name" >/dev/null 2>&1
-}
-
-npm_global_install() {
-  local name="$1"
-  if npm_global_has "$name"; then
-    say "${C_DIM}[skip] npm 已存在：$name${C_RST}"
-    return 0
-  fi
-  retry "$RETRY_MAX" "$RETRY_SLEEP_S" npm i -g "$name"
-}
-
 check_termux_x11_app() {
-  section "前置提醒（务必截图保存）"
-  say "1) Termux 必须从 GitHub 安装。"
-  say "2) 必须安装 Termux:API。"
-  say "3) 必须安装 Termux:X11。"
-  say "4) 必须安装 Termux:Styling。"
-  say "5) 建议以上四个都从 GitHub 安装。"
-  say "6) 建议配合 MT 管理器使用。"
-  say "7) 未root找Termux home目录方式："
-  say "(1) 打开 MT 管理器"
-  say "(2) 点击左上三条杠展开选项页"
-  say "(3) 点击选项页右上角三点"
-  say "(4) +添加本地储存"
-  say "(5) 左上角三条杠展开"
-  say "(6) 选择 termux"
-  say "(7) 选择允许访问 termux"
-  say "8) 一般情况会出现 termuxhome。"
-  say "9) 如果找不到 termux home，就需要想办法了。"
-  say "10) 建议截图保存该页面。"
-  say "● 保持手机常亮"
-  say "● 保持 Termux 前台运行"
-  say "● 保持电量足够"
+  section "前置提醒"
+  info "先确认已安装以下 App："
+  item "Termux（建议 GitHub 版）"
+  item "Termux:API"
+  item "Termux:X11"
+  warn "安装时请保持前台、亮屏、电量充足。"
   say
-  say "下载页："
-  say "- Termux: https://github.com/termux/termux-app/releases"
-  say "- Termux:API: https://github.com/termux/termux-api/releases"
-  say "- Termux:X11: https://github.com/termux/termux-x11/releases"
-  say "- Termux:Styling: https://github.com/termux/termux-styling/releases"
+  info "下载页："
+  item "Termux: ${TERMUX_APP_URL}"
+  item "Termux:API: ${TERMUX_API_URL}"
+  item "Termux:X11: ${TERMUX_X11_URL}"
   say
-  pause "你现在可以回车继续了… "
+  pause "安装完成后回车继续… "
 }
 
-install_node_and_tools() {
-  section "安装基础依赖（nodejs/git/termux-api 等）"
-  say "提示：这一步会安装 Node/NPM，后面要用它装 codex。"
+install_basic_tools() {
+  section "安装基础依赖"
+  info "将安装 git / curl / termux-api 等组件。"
   pause "准备好就回车继续安装基础依赖… "
-  pkg_install git curl ca-certificates nodejs python termux-api termux-tools
-
-  section "校验 Node/NPM"
-  retry 1 0 node -v
-  retry 1 0 npm -v
-  pause "看到 Node/NPM 版本号后回车继续（建议截图留档）… "
-
-  section "安装 OpenAI / Codex（npm 全局）"
-  say "说明：openai 通常是“项目依赖”，但你需要一键安装，这里按全局安装处理。"
-  say "提示：npm 全局安装也可能慢，属正常现象。"
-  pause "准备好就回车开始安装 openai / codex… "
-  npm_global_install openai
-  npm_global_install @openai/codex
-
-  section "校验 codex"
-  if (( DRY_RUN )); then
-    say "${C_DIM}+ command -v codex && (codex --version || codex --help)${C_RST}"
-  else
-    command -v codex >/dev/null
-    (codex --version 2>/dev/null || codex --help >/dev/null) || true
-  fi
-  say "${C_GRN}[ok] Node/OpenAI/Codex 就绪。${C_RST}"
-  pause "确认 codex 可用后回车继续… "
+  pkg_install "${BASE_PACKAGES[@]}"
+  ok "基础依赖安装完成。"
 }
 
 manual_repo_check() {
-  section "Termux Desktop 前：启用仓库并手动测试源"
-  say "这一步的核心：确保 x11-repo/tur-repo 的源顺畅，否则后面会非常折磨。"
+  section "启用仓库"
   pause "回车继续启用仓库… "
   pkg_install x11-repo tur-repo
   say
-  say "建议你手动确认：termux-x11-nightly 是否能被找到（代表源 OK）。"
+  info "检查 termux-x11 软件源："
   if (( DRY_RUN )); then
     say "${C_DIM}+ pkg show termux-x11-nightly || pkg search termux-x11${C_RST}"
   else
     (pkg show termux-x11-nightly 2>/dev/null || pkg search termux-x11 2>/dev/null || true)
   fi
   say
-  say "如果下载慢/报错：先运行 ${C_BOLD}termux-change-repo${C_RST} 选一个更快的镜像，然后再回来继续。"
-  pause "源没问题就回车继续安装 Termux Desktop（或 Ctrl+C 退出先改源）… "
-}
-
-desktop_choice_tips() {
-  print_required_installer_choices
+  warn "如果源有问题，先运行 ${C_BOLD}termux-change-repo${C_RST}。"
+  pause "确认后回车继续安装 Termux Desktop… "
 }
 
 fetch_desktop_installer_curl() {
   local installer="$1"
   retry "$RETRY_MAX" "$RETRY_SLEEP_S" curl -fL --connect-timeout 20 --max-time 600 \
-    "https://raw.githubusercontent.com/sabamdarif/termux-desktop/main/setup-termux-desktop" -o "$installer"
+    "$DESKTOP_INSTALLER_URL" -o "$installer"
   retry 1 0 chmod +x "$installer"
 }
 
 fetch_desktop_installer_git() {
   local installer="$1"
-  local dir="$HOME/.cache/termux-desktop-upstream"
-  retry 1 0 mkdir -p "$HOME/.cache"
+  local dir="$UPSTREAM_CACHE_DIR"
+  retry 1 0 mkdir -p "$CACHE_DIR"
   if [[ -d "$dir/.git" ]]; then
     retry "$RETRY_MAX" "$RETRY_SLEEP_S" git -C "$dir" pull --rebase --autostash
   else
-    retry "$RETRY_MAX" "$RETRY_SLEEP_S" git clone --depth=1 https://github.com/sabamdarif/termux-desktop.git "$dir"
+    retry "$RETRY_MAX" "$RETRY_SLEEP_S" git clone --depth=1 "$DESKTOP_UPSTREAM_REPO" "$dir"
   fi
   retry 1 0 cp -a "$dir/setup-termux-desktop" "$installer"
   retry 1 0 chmod +x "$installer"
 }
 
 install_termux_desktop() {
-  section "安装 Termux Desktop（sabamdarif/termux-desktop）"
-  say "提示：这一步会下载大量包/配置，通常是“最长的一段路”。"
-  say "建议：Wi‑Fi + 充电 + 屏幕常亮；中途失败不用慌，重跑即可续上。"
+  section "安装 Termux Desktop"
+  info "这一步耗时可能较长。"
   say
 
-  local installer="$HOME/setup-termux-desktop"
-  if [[ "$DESKTOP_INSTALLER_SOURCE" == "curl" ]]; then
-    fetch_desktop_installer_curl "$installer"
-  elif [[ "$DESKTOP_INSTALLER_SOURCE" == "git" ]]; then
-    fetch_desktop_installer_git "$installer"
-  else
-    # auto：先 curl，失败再 git
-    if ! fetch_desktop_installer_curl "$installer"; then
-      say "${C_YLW}[stage1] curl 获取安装器失败，改用 git clone 兜底…${C_RST}"
+  local installer=""
+  local start_ts end_ts dur rc
+  prepare_temp_installer
+  installer="$TMP_INSTALLER"
+
+  while true; do
+    if [[ "$DESKTOP_INSTALLER_SOURCE" == "curl" ]]; then
+      fetch_desktop_installer_curl "$installer"
+    elif [[ "$DESKTOP_INSTALLER_SOURCE" == "git" ]]; then
       fetch_desktop_installer_git "$installer"
-    fi
-  fi
-
-  pause "准备进入 Termux Desktop 安装器（会出现很多选项）。回车继续… "
-
-  local start_ts end_ts
-  start_ts="$(date +%s)"
-
-  local rc=0
-  if (( DRY_RUN )); then
-    if (( DESKTOP_LITE )); then
-      say "${C_DIM}+ LITE=1 $installer${C_RST}"
     else
-      say "${C_DIM}+ $installer${C_RST}"
+      if ! fetch_desktop_installer_curl "$installer"; then
+        warn "curl 获取安装器失败，改用 git clone。"
+        fetch_desktop_installer_git "$installer"
+      fi
     fi
-  else
-    set +e
-    if (( DESKTOP_LITE )); then
-      env LITE=1 "$installer"
+
+    pause "准备进入 Termux Desktop 安装器。回车继续… "
+
+    start_ts="$(date +%s)"
+    rc=0
+
+    if (( DRY_RUN )); then
+      if is_enabled "$DESKTOP_LITE"; then
+        skip "LITE=1 $installer"
+      else
+        skip "$installer"
+      fi
     else
-      "$installer"
+      set +e
+      if is_enabled "$DESKTOP_LITE"; then
+        env LITE=1 "$installer"
+      else
+        "$installer"
+      fi
+      rc=$?
+      set -e
     fi
-    rc=$?
-    set -e
-  fi
 
-  end_ts="$(date +%s)"
-  local dur=$(( end_ts - start_ts ))
-  say
-  say "${C_DIM}[stage1] Termux Desktop 用时：${dur}s${C_RST}"
+    end_ts="$(date +%s)"
+    dur=$(( end_ts - start_ts ))
+    say
+    info "Termux Desktop 用时：${dur}s"
 
-  if (( rc != 0 )); then
-    say "${C_YLW}[stage1] Termux Desktop 安装器返回非 0（rc=$rc）。${C_RST}"
-    say "常见原因：网络抖动/镜像源不稳/Android 杀后台。"
+    if (( rc == 0 )); then
+      ok "Termux Desktop 安装流程结束。"
+      return 0
+    fi
+
+    warn "Termux Desktop 安装器返回非 0（rc=$rc）。"
+    warn "常见原因：网络抖动、镜像源不稳、后台被杀。"
     pause "回车重试一次（或 Ctrl+C 退出稍后再试）… "
-    install_termux_desktop
-    return 0
-  fi
-
-  say "${C_GRN}[ok] Termux Desktop 安装流程结束。${C_RST}"
+  done
 }
 
 final_notes() {
-  section "下一步（手动验证）"
-  say "1) 建议你截图这个界面。"
-  say "2) 现在请你左侧安全拉出 Termux UI。"
-  say "3) 选择 New session 新建标签页。"
-  say "4) 按照要求配置主题。"
-  say "5) 看不懂就尽量选第一个选项。"
-  say "6) 以下是我们推荐的选项（请截图保存，后续会进入这些选项）："
+  section "手动验证"
+  info "安装结束后可执行以下命令检查："
+  item "command -v tx11start"
+  item "tx11start"
   say
-  say "A) Termux Desktop 安装器内："
-  say "A1) Select Install Type：1. Custom"
-  say "A2) Select Desktop Environment：1. XFCE"
-  say "A3) Select Style：1 (Basic Style)"
-  say "A4) Browser：2. chromium"
-  say "A5) IDE：1. VS Code"
-  say "A6) Media Player：2. Mpv"
-  say "A7) Photo Editor：1. Gimp"
-  say "A8) Wine：1. Native"
-  say "A9) Hardware Acceleration：n"
-  say "A10) Extra Wallpapers (1GB+)：n"
-  say "A11) Shell：1. Zsh + zinit"
-  say "A12) Zsh Theme：2. Powerlevel10k"
-  say "A13) Terminal Utilities：y"
-  say "A14) Nerd Font：Meslo"
-  say "A15) File Manager Tools Enhancement：y"
-  say "A16) GUI Mode：1. Termux:x11"
-  say "A17) Desktop autostart at Termux startup：n"
-  say "A18) Linux container：n"
+  show_completion_summary 1
   say
-  say "B) Termux:Styling（termux-style）建议："
-  say "B1) Colors：Custom（使用 ~/.termux/colors.properties）"
-  say "B2) Font：Custom（使用 ~/.termux/font.ttf）"
-  say "B3) 执行：termux-reload-settings"
-  say
-  say "C) Powerlevel10k 配置向导（可忽略）："
-  say "C1) Font：Nerd Font v3 + Powerline"
-  say "C2) Icons：Large icons"
-  say "C3) Charset：Unicode"
-  say "C4) Prompt style：Lean"
-  say "C5) Time：12h"
-  say "C6) Prompt lines：1 line"
-  say "C7) Spacing：Compact"
-  say "C8) Icons density：Few icons / Concise"
-  say "C9) Transient prompt：On"
-  say "C10) Instant prompt：Verbose"
-  say
-  say "● 保持手机常亮"
-  say "● 保持 Termux 前台运行"
-  say "● 保持电量足够"
-  say
-  say "验证命令："
-  say "- command -v tx11start"
-  say "- tx11start"
-  say "- codex --help"
-  say
-  say "${C_GRN}Stage 1 完成。后续继续 Stage 2：恢复 motd/zsh/键位/定制 deepseek。${C_RST}"
+  ok "Stage 1 完成。"
 }
 
 main() {
-  need_termux
   if [[ "${1:-}" == "-h" || "${1:-}" == "--help" || "${1:-}" == "help" ]]; then
     show_help
     return 0
   fi
-  : >"$LOG_FILE" 2>/dev/null || true
+  validate_env_settings
+  need_termux
+  prepare_runtime
+  setup_step_total
   banner
+  show_overview
 
   check_termux_x11_app
 
-  section "环境信息（供你确认架构/版本）"
+  section "环境信息"
   if command -v termux-info >/dev/null 2>&1; then
     if (( DRY_RUN )); then
       say "${C_DIM}+ termux-info${C_RST}"
@@ -447,21 +478,20 @@ main() {
       termux-info || true
     fi
   else
-    say "${C_DIM}[info] 未找到 termux-info（可忽略）。${C_RST}"
+    info "未找到 termux-info（可忽略）。"
   fi
 
   pkg_update_upgrade
-  install_node_and_tools
+  install_basic_tools
 
   if (( ! INSTALL_DESKTOP )); then
     section "跳过桌面安装"
-    say "你设置了 INSTALL_DESKTOP=0：到这里结束。"
-    final_notes
+    info "你设置了 INSTALL_DESKTOP=0：已跳过 Termux Desktop。"
+    show_completion_summary 0
     return 0
   fi
 
   manual_repo_check
-  desktop_choice_tips
   install_termux_desktop
   final_notes
 }
