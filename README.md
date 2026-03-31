@@ -14,12 +14,16 @@
 
 1. 打开 Termux
 2. 安装 git
+
    `pkg update -y && pkg install -y git`
 3. clone 脚本
+
    `git clone https://github.com/jiangshanyao2200-hue/longgu-termux-kit-step1`
 4. 进入目录
+
    `cd ~/longgu-termux-kit-step1`
 5. 运行脚本
+
    `bash stage1-prereqs.sh`
 
 脚本当前会做这些事：
