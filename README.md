@@ -29,8 +29,6 @@
 - 启用 `x11-repo` 和 `tur-repo`
 - 下载并运行上游 `termux-desktop` 安装器
 
-脚本不会再自动安装 OpenAI 或 Codex。
-
 安装完成后可执行：
 
 `tx11start`
