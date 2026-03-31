@@ -1,4 +1,4 @@
-# Termux 界面定制 Stage 1
+# Termux 升级 step A
 
 目标：准备 Termux Desktop 的基础环境。
 
@@ -29,9 +29,12 @@
 脚本当前会做这些事：
 
 - 更新系统包
-- 安装基础依赖：`git`、`curl`、`ca-certificates`、`termux-api`、`termux-tools`
-- 启用 `x11-repo` 和 `tur-repo`
-- 下载并运行上游 `termux-desktop` 安装器
+- 安装基础依赖：
+`git`、`curl`、`ca-certificates`、`termux-api`、`termux-tools`
+- 启用
+ `x11-repo` 和 `tur-repo`
+- 下载并运行上游 
+`termux-desktop` 安装器
 
 安装完成后可执行：
 
